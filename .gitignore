@@ -132,5 +132,5 @@ dist
 
 # Others
 .data/
-http/*
-config.js
+https/
+./config.js
