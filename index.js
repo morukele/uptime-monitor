@@ -4,12 +4,41 @@
  */
 
 // Dependencies
+const fs = require("fs");
 const http = require("http");
+const https = require("https");
 const url = require("url");
 const StringDecoder = require("string_decoder").StringDecoder;
+const config = require("./config");
+const handlers = require("./lib/handlers");
+const helpers = require("./lib/helpers");
 
-// The server should respond to all request with a string
-const server = http.createServer((req, res) => {
+// Instantiate the HTTP server
+const httpServer = http.createServer((req, res) => {
+	unifiedServer(req, res);
+});
+
+// Starting http server
+httpServer.listen(config.httpPort, () => {
+	console.log("The http server is listening on port " + config.httpPort);
+});
+
+// Instantiate the HTTPS server
+var httpsServerOptions = {
+	key: fs.readFileSync("./https/key.pem"),
+	cert: fs.readFileSync("./https/cert.pem"),
+};
+var httpsServer = https.createServer(httpsServerOptions, (req, res) => {
+	unifiedServer(req, res);
+});
+
+// Starting https server
+httpsServer.listen(config.httpsPort, () => {
+	console.log("The https server is listening on port " + config.httpsPort);
+});
+
+// All the server logic for both https and https server
+var unifiedServer = (req, res) => {
 	// Get the URL and parse it
 	var parsedUrl = url.parse(req.url, true);
 
@@ -36,29 +65,46 @@ const server = http.createServer((req, res) => {
 	req.on("end", () => {
 		buffer += decoder.end();
 
-		// Send the response
-		res.end("Hello World\n");
+		// Choose the correct handler for request
+		var chosenHandler =
+			typeof router[trimmedPath] !== "undefined"
+				? router[trimmedPath]
+				: handlers.notFound;
 
-		// Log the request path
-		console.log(buffer);
+		// Construct the data object to send to handler
+		var data = {
+			trimmedPath: trimmedPath,
+			queryStringObject: queryStringObject,
+			method: method,
+			headers: headers,
+			payload: helpers.parseJsonToObject(buffer),
+		};
+
+		// Route the request to the chosen handler
+		chosenHandler(data, (statusCode, payload) => {
+			// Use the status code called back by the handler or default to 200
+
+			statusCode = typeof statusCode === "number" ? statusCode : 200;
+
+			// Use the payload defined by handler or default to empty object
+			payload = typeof payload === "object" ? payload : {};
+
+			// Convert payload to string
+			var payloadString = JSON.stringify(payload);
+
+			//return response
+			res.setHeader("Content-Type", "application/json");
+			res.writeHead(statusCode);
+			res.end(payloadString);
+
+			// Log the request path
+			console.log("returning response: ", statusCode, payloadString);
+		});
 	});
-});
-
-// Start th server, and have it listen on port 3000
-server.listen(3000, () => {
-	console.log("The server is listening on port 3000");
-});
-
-//Define the request handlers
-const handlers = {};
-
-// Sample handler
-handlers.sample = (data, callback) => {};
-
-// Not found handler
-handlers.notFound = (data, callback) => {};
+};
 
 // Define a request router
 const router = {
-	sample: handlers.sample,
+	ping: handlers.ping,
+	users: handlers.users,
 };
