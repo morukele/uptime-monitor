@@ -130,4 +130,5 @@ dist
 .pnp.*
 
 # https
-.pem
+*.pem
+config.js
