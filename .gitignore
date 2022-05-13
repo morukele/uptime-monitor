@@ -13,6 +13,8 @@ lerna-debug.log*
 # HTTPS Keys
 https
 *.pem
+https/cert.pem
+https/key.pem
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
